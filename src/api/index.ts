@@ -29,9 +29,9 @@ const api={
     getInboundOptions: () => {
         return axios.get("/inbound-orders/options");
     },
-    // 审核入库单
+    // 审核入库单（批量审核）
     auditInboundOrders: (data: any) => {
-        return axios.put("/inbound-orders/audit", data);
+        return axios.put("/inbound-orders/batch-audit", data);
     },
     // 撤销入库单
     revokeInboundOrders: (data: any) => {
@@ -109,6 +109,30 @@ const api={
 
     // 系统设置 - 操作日志
     getOperationLogs: (params: any) => axios.get("/operation-logs", { params }),
+
+    // ========== 波次管理 API ==========
+    // 获取波次列表
+    getWaves: (params: any) => axios.get("/waves", { params }),
+    // 智能推荐波次
+    recommendWaves: (data: any) => axios.post("/waves/recommend", data),
+    // 创建波次
+    createWave: (data: any) => axios.post("/waves", data),
+    // 获取波次拣货地图
+    getWavePickMap: (id: number | string) => axios.get(`/waves/${id}/pick-map`),
+    // 标记波次完成
+    completeWave: (id: number | string, data: any) => axios.put(`/waves/${id}/complete`, data),
+
+    // ========== 库位管理 API ==========
+    // 获取库位列表
+    getLocations: (params: any) => axios.get("/locations/list", { params }),
+    // 获取仓库选项
+    getWarehouseOptions: () => axios.get("/warehouses/options"),
+    // 创建库位
+    createLocation: (data: any) => axios.post("/locations", data),
+    // 更新库位
+    updateLocation: (locationCode: string, data: any) => axios.put(`/locations/${locationCode}`, data),
+    // 删除库位
+    deleteLocation: (locationCode: string) => axios.delete(`/locations/${locationCode}`),
 }
 
 export default api;

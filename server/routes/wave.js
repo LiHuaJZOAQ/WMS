@@ -214,6 +214,7 @@ router.get('/waves/:id/pick-map', async (req, res) => {
 router.put('/waves/:id/complete', async (req, res) => {
   try {
     const waveId = req.params.id;
+    const userId = req.user ? req.user.id : 1;
     const connection = await pool.getConnection();
     
     try {
@@ -231,19 +232,36 @@ router.put('/waves/:id/complete', async (req, res) => {
         ['Picked', waveId]
       );
 
-      // 找到所有关联的 OutboundID 并标记为完成
-      const [details] = await connection.execute('SELECT OutboundID FROM WaveDetail WHERE WaveID = ?', [waveId]);
+      // 找到所有关联的出库单并完成库存扣减
+      const [waveDetails] = await connection.execute(
+        'SELECT wd.OutboundID, od.ItemID, od.Quantity, od.LocationCode FROM WaveDetail wd JOIN OutboundOrderDetail od ON wd.OutboundID = od.OutboundID WHERE wd.WaveID = ?',
+        [waveId]
+      );
       
-      for (const d of details) {
+      for (const d of waveDetails) {
+        // 1. 扣减 CurrentQuantity（最终库存）
+        // 2. 扣减 ReservedQuantity（预留数量）
+        // 3. 增加实际出库流水
+        await connection.execute(
+          'UPDATE Inventory SET CurrentQuantity = CurrentQuantity - ?, ReservedQuantity = ReservedQuantity - ?, LastUpdatedTime = NOW() WHERE ItemID = ? AND LocationID = ?',
+          [d.Quantity, d.Quantity, d.ItemID, d.LocationCode || 'DEFAULT']
+        );
+        
+        // 记录库存流水（出库）
+        await connection.execute(
+          'INSERT INTO InventoryTransaction (ItemID, TransactionType, Quantity, SourceDocumentNo, TransactionTime, OperatorID) VALUES (?, "WAVE_PICK", ?, (SELECT OutboundNo FROM OutboundOrder WHERE OutboundID=?), NOW(), ?)',
+          [d.ItemID, -d.Quantity, d.OutboundID, userId]
+        );
+        
+        // 标记出库单完成
         await connection.execute(
           'UPDATE OutboundOrder SET Status = ? WHERE OutboundID = ?',
           ['Completed', d.OutboundID]
         );
-        // 库存扣减等逻辑由于在之前单据审核时已经做了预扣减，此处仅改变业务单据状态
       }
 
       await connection.commit();
-      res.json(successResponse(null, '波次拣货完成'));
+      res.json(successResponse(null, '波次拣货完成，库存已扣减'));
     } catch (err) {
       await connection.rollback();
       throw err;

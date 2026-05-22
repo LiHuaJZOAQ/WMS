@@ -9,11 +9,10 @@
           <TopView />
         </el-header>
         <el-main>
-          <!-- <KeepAlive>
-              <component :is="counter.currentView" />
-            </KeepAlive> -->
+          <!-- 修复：移除全局 KeepAlive，使用 include 指定只缓存特定组件 -->
+          <!-- 全局 KeepAlive 会导致组件被永久缓存，造成内存泄漏 -->
           <router-view v-slot="{ Component }">
-            <keep-alive>
+            <keep-alive :include="cachedComponents">
               <component :is="Component" />
             </keep-alive>
           </router-view>
@@ -46,6 +45,10 @@ import TopView from './components/TopView.vue';
 
 const counter = useCounterStore();
 const router = useRouter();
+
+// 修复：只缓存首页和主要数据展示页面，避免内存泄漏
+// 复杂的表单和详情页面不应该被缓存
+const cachedComponents = ref(['MainView', 'Inventory']);
 
 
 // const currentView = ref("MainView");
